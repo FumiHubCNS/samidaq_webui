@@ -25,3 +25,6 @@ venv/
 *.pem
 **/cert.pem
 **/key.pem
+
+# Local
+paths.conf
