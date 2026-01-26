@@ -1,6 +1,6 @@
 # Samidare DAQ webui (demo)
 
-Samdare CLIコマンドのWeb制御用UI
+Web control UI for Samidare CLI commands
 
 ## Quick start 
 
@@ -8,10 +8,11 @@ Samdare CLIコマンドのWeb制御用UI
 uv run webui
 ```
 
-## ディレクトリ構造
+## Directory Structure
 
 ```
 .
+├── paths.conf
 ├── pyproject.toml
 ├── README.md
 ├── src
