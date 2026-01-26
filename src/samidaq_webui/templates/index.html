@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Samidare DAQ Control</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 20px auto; }
+    .row { display: grid; grid-template-columns: 180px 1fr 120px; gap: 8px; margin: 8px 0; align-items: center; }
+    input { padding: 6px; }
+    button { padding: 8px 14px; }
+    .btns { display: flex; gap: 10px; margin-top: 14px; }
+    pre { background: #111; color: #ddd; padding: 12px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h2>Samidare DAQ Control</h2>
+
+  <form method="post" action="/apply">
+    <div class="row">
+      <div>Run number</div>
+      <input name="run_number" value="{{ values.run_number }}" />
+      <div></div>
+    </div>
+
+    <div class="row">
+      <div>Run name</div>
+      <input name="run_name" value="{{ values.run_name }}" />
+      <div></div>
+    </div>
+   
+    <div class="row"><div>Trigger type</div>
+      <input name="setting1" value="{{ values.setting1 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Output dir</div>
+      <input name="setting2" value="{{ values.setting2 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>File name</div>
+      <input name="setting3" value="{{ values.setting3 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Polarity</div>
+      <input name="setting4" value="{{ values.setting4 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Gain</div>
+      <input name="setting5" value="{{ values.setting5 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Num sample</div>
+      <input name="setting6" value="{{ values.setting6 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Pre sample</div>
+      <input name="setting7" value="{{ values.setting7 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Clock type</div>
+      <input name="setting8" value="{{ values.setting8 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Trigger value</div>
+      <input name="setting9" value="{{ values.setting9 }}" />
+      <div></div>
+    </div>
+    
+    <div class="row"><div>Comment</div>
+      <input name="setting10" value="{{ values.setting10 }}" />
+      <div></div>
+    </div>
+   
+    <div class="btns">
+      <button type="submit">Send (apply)</button>
+      <button type="submit" formaction="/run">Run</button>
+      <button type="submit" formaction="/stop">Stop</button>
+    </div>
+  </form>
+
+
+<div>
+  <b>Output file:</b> <span id="path">-</span><br>
+  <b>Size:</b> <span id="size">0</span> MB<br>
+  <b>Rate:</b> <span id="rate">0</span> MB/s
+</div>
+
+<script>
+async function updateStatus() {
+  try {
+    const r = await fetch("/status", { cache: "no-store" });
+    const d = await r.json();
+
+    document.getElementById("path").textContent = d.path ?? "-";
+    document.getElementById("size").textContent =
+      (typeof d.size_mb === "number") ? d.size_mb.toFixed(3) : "0.000";
+    document.getElementById("rate").textContent =
+      (typeof d.rate_mb_s === "number") ? d.rate_mb_s.toFixed(3) : "0.000";
+  } catch (e) {
+    console.error("status update failed:", e);
+  }
+}
+
+updateStatus();
+setInterval(updateStatus, 1000);
+</script>
+
+  {% if message %}
+    <p><b>{{ message }}</b></p>
+  {% endif %}
+
+  {% if log %}
+    <h3>Output</h3>
+    <pre>{{ log }}</pre>
+  {% endif %}
+</body>
+</html>
