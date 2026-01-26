@@ -22,8 +22,9 @@ get_conf() {
 
 ROOT="$(get_conf ROOT "$CONF_FILE")"
 WEBCTL_DIR="$(get_conf WEBCTL_DIR "$CONF_FILE")"
+SAMDAQ_DIR="$(get_conf SAMDAQ_DIR "$CONF_FILE")"
+PIXI_SKIP="$(get_conf PIXI_SKIP "$CONF_FILE")"
 
-SAMDAQ_DIR="${ROOT}/SAM_DAQ"
 DATA_DIR="${WEBCTL_DIR}/data"
 SCRIPT_OUT="${SAMDAQ_DIR}/scripts/hh015.txt"
 WAIT_SH="${WEBCTL_DIR}/scripts/wait.sh"
@@ -59,7 +60,8 @@ else
     CLOCKFLAG="#"
 fi
 
-LOG="${OUT_DIR}/samidare/log/${RUN_NAME}_${RUN_NUMBER}.log"
+LOG="${OUT_DIR}/../log/${RUN_NAME}_${RUN_NUMBER}.log"
+RSLOG="${OUT_DIR}/../run_sammary.log"
 
 ########################################
 ### write script
@@ -121,21 +123,54 @@ EOF
 
 echo "[run.sh] Generated ${SCRIPT_OUT}"
 
+
+########################################
+### write log
+########################################
+START_TIME="$(date '+%Y-%m-%d_%H:%M:%S_%Z')"
+echo "Start Time: ${START_TIME}" >> "${LOG}"
+echo "${RUN_NUMBER}" >> "${LOG}"
+echo "${RUN_NAME}" >> "${LOG}"
+echo "${TRIG_TYPE}" >> "${LOG}"
+echo "${OUT_DIR}" >> "${LOG}"
+echo "${FILE_NAME}" >> "${LOG}"
+echo "${POLARITY}" >> "${LOG}"
+echo "${GAIN}" >> "${LOG}"
+echo "${NUM_SAMPLE}" >> "${LOG}"
+echo "${PRE_SAMPLE}" >> "${LOG}"
+echo "${CLOCK_TYPE}" >> "${LOG}"
+echo "${TRIG_VALUE}" >> "${LOG}"
+echo "${COMMENT}" >> "${LOG}"
+
+########################################
+### run summary
+########################################
+printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s ' \
+"$START_TIME" "$RUN_NUMBER" "$RUN_NAME" "$TRIG_TYPE" \
+"$OUT_DIR" "$FILE_NAME" "$POLARITY" "$GAIN" \
+"$NUM_SAMPLE" "$PRE_SAMPLE" "$CLOCK_TYPE" \
+"$TRIG_VALUE" "$COMMENT" "$LOG" >> "$RSLOG"
+
 ########################################
 ### run samfaq uing pixi with background
 ########################################
-echo "Start Time: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> "${LOG}"
 cd "${ROOT}"
-source ./clean-env.sh
-cd "${SAMDAQ_DIR}"
 
-PIDFILE="${DATA_DIR}/samdaq.pgid"
+if [[ "${PIXI_SKIP}" == "true" ]]; then
+    echo "[run.sh] PIXI_SKIP is set to true"
+    echo "[run.sh] PIXI_SKIP is set to true" >> "${LOG}" 2>&1 &
+else
+    source ./clean-env.sh
+    cd "${SAMDAQ_DIR}"
 
-setsid bash -lc 'pixi run samdaq --script "scripts/'"$(basename "${SCRIPT_OUT}")"'"' \
-	  >> "${LOG}" 2>&1 &
-SAMDAQ_PGID=$!
+    PIDFILE="${DATA_DIR}/samdaq.pgid"
 
-echo "${SAMDAQ_PGID}" > "${PIDFILE}"
-echo "[run.sh] wrote PGID to ${PIDFILE}: ${SAMDAQ_PGID}"
+    setsid bash -lc 'pixi run samdaq --script "scripts/'"$(basename "${SCRIPT_OUT}")"'"' \
+        >> "${LOG}" 2>&1 &
+    SAMDAQ_PGID=$!
+
+    echo "${SAMDAQ_PGID}" > "${PIDFILE}"
+    echo "[run.sh] wrote PGID to ${PIDFILE}: ${SAMDAQ_PGID}"
+fi
 
 exit 0

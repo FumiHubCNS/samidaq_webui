@@ -22,8 +22,9 @@ get_conf() {
 
 ROOT="$(get_conf ROOT "$CONF_FILE")"
 WEBCTL_DIR="$(get_conf WEBCTL_DIR "$CONF_FILE")"
+SAMDAQ_DIR="$(get_conf SAMDAQ_DIR "$CONF_FILE")"
+PIXI_SKIP="$(get_conf PIXI_SKIP "$CONF_FILE")"
 
-SAMDAQ_DIR="${ROOT}/SAM_DAQ"
 DATA_DIR="${WEBCTL_DIR}/data"
 SCRIPT_OUT="${SAMDAQ_DIR}/scripts/hh015.txt"
 WAIT_SH="${WEBCTL_DIR}/scripts/wait.sh"
@@ -59,29 +60,37 @@ else
     CLOCKFLAG="#"
 fi
 
-LOG="/mnt/getdaq02-data/samidare/log/dump.log"
-RSLOG="${OUT_DIR}/samidare/run_sammary.log"
+LOG="${OUT_DIR}/../log/${RUN_NAME}_${RUN_NUMBER}.log"
+RSLOG="${OUT_DIR}/../run_sammary.log"
 
 ########################################
 ### kill samdaq using PID
 ########################################
 echo "[stop.sh] wait finished, stopping samdaq..."
 
-PIDFILE="/home/daq/Work/daqui/src/data/samdaq.pgid"
-[[ -f "$PIDFILE" ]] || { echo "no pidfile: $PIDFILE"; exit 0; }
 
-PGID="$(tr -d '\r\n' < "$PIDFILE")"
-[[ -n "$PGID" ]] || { echo "empty pgid"; exit 0; }
+if [[ "${PIXI_SKIP}" == "true" ]]; then
+    echo "[run.sh] PIXI_SKIP is set to true"
+    echo "[run.sh] PIXI_SKIP is set to true" >> "${LOG}" 2>&1 &
+else
+    PIDFILE="/home/daq/Work/daqui/src/data/samdaq.pgid"
+    [[ -f "$PIDFILE" ]] || { echo "no pidfile: $PIDFILE"; exit 0; }
 
-echo "killing PGID=$PGID"
-kill -TERM -"${PGID}" 2>/dev/null || true
-sleep 1
-kill -KILL -"${PGID}" 2>/dev/null || true
+    PGID="$(tr -d '\r\n' < "$PIDFILE")"
+    [[ -n "$PGID" ]] || { echo "empty pgid"; exit 0; }
+
+    echo "killing PGID=$PGID"
+    kill -TERM -"${PGID}" 2>/dev/null || true
+    sleep 1
+    kill -KILL -"${PGID}" 2>/dev/null || true
+fi
 
 ########################################
 ### write log
 ########################################
-echo "Stop Time: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> "${LOG}"
+STOP_TIME="$(date '+%Y-%m-%d_%H:%M:%S_%Z')"
+
+echo "Stop Time: ${STOP_TIME}" >> "${LOG}"
 echo "${RUN_NUMBER}" >> "${LOG}"
 echo "${RUN_NAME}" >> "${LOG}"
 echo "${TRIG_TYPE}" >> "${LOG}"
@@ -93,12 +102,19 @@ echo "${NUM_SAMPLE}" >> "${LOG}"
 echo "${PRE_SAMPLE}" >> "${LOG}"
 echo "${CLOCK_TYPE}" >> "${LOG}"
 echo "${TRIG_VALUE}" >> "${LOG}"
+echo "${COMMENT}" >> "${LOG}"
 
 ########################################
 ### run summary
 ########################################
-echo "${RUN_NUMBER} ${RUN_NAME} ${TRIG_TYPE} \
-${OUT_DIR} ${FILE_NAME} ${POLARITY} ${GAIN} \
-${NUM_SAMPLE} ${PRE_SAMPLE} ${CLOCK_TYPE} ${LOG}" >> "${RSLOG}"
+printf '%s' "${STOP_TIME}" >> "${RSLOG}"
+printf '\n' >> "${RSLOG}"
+
+########################################
+### update run number
+########################################
+num=$((10#$RUN_NUMBER + 1))
+RUN_NUMBER=$(printf "%06d" "$num")
+echo "$RUN_NUMBER" > "${DATA_DIR}/run_number.dat"
 
 echo "[stop.sh] finished"
