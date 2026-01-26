@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# dump command
-
+########################################
+### dump command
+########################################
 echo "TRIGGER_TYPE :  $SETTING1"
 echo "Directory    :  $SETTING2"
 echo "FILE NAME    :  $SETTING3"
@@ -14,9 +15,9 @@ echo "CLOCK_TYPE   :  $SETTING8"
 echo "TRIGGER_VALUE:  $SETTING9"
 echo "COMMENT      :  $SETTING10"
 
-
-
-# write setting
+########################################
+### write setting
+########################################
 echo "$RUN_NUMBER" > ../data/run_number.dat
 echo "$RUN_NAME" > ../data/run_name.dat
 echo "$SETTING1" > ../data/trig_type.dat

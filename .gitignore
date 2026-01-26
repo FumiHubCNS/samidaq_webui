@@ -20,3 +20,8 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# SSL/TLS Certificate
+*.pem
+**/cert.pem
+**/key.pem

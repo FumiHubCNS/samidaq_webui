@@ -3,7 +3,7 @@ set -euo pipefail
 
 FILE="status.txt"
 TARGET="STOP"
-INTERVAL=1   # 秒
+INTERVAL=1
 
 echo "Waiting for $FILE to become '$TARGET'..."
 
