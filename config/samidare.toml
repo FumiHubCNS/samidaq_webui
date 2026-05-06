@@ -1,0 +1,22 @@
+[paths]
+backend = "src/samidare/Backend"
+# save_dir = "set your save dir here, e.g. log/samidare_configs"
+
+[defaults]
+save_dir = "log/samidare_configs"
+config = "src/samidare/Backend/config/general/default.json"
+
+[functions]
+send_command = "samidare.Backend.helpers.backEndHelpers:send_command"
+
+[device]
+script = "src/samidare/Scripts/send_samdaq_tmux.sh"
+session = "samdaq:0.0"
+log_file = "log/samdaq_tmux.log"
+wait_timeout = 2
+poll_sec = 0.05
+
+[api]
+prefix = "/api/samidare"
+status_route = "/status"
+command_route = "/command"

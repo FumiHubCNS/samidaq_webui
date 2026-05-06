@@ -1,0 +1,3 @@
+[submodule "src/agasa"]
+	path = src/agasa
+	url = https://github.com/lakmins7/agasa-control-panel.git

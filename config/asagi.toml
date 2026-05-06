@@ -1,0 +1,19 @@
+[paths]
+agasa_backend = "src/agasa/Backend"
+
+default_config = "src/agasa/Backend/config/general/default_AGASAv3_config.json"
+bitmap = "src/agasa/Backend/config/general/AGASAv3_spi_bitmap.json"
+
+save_dir = "generated/agasa_configs"
+
+[functions]
+bit_value_conversion = "helpers.backEndHelpers:bitValueConversionAGASAv3"
+create_config_bits = "helpers.backEndHelpers:createAGASAv3ConfigBits1SPI8"
+
+[device]
+enabled = false
+command = "<path-to-asagi-controller>"
+hul_ip = "<HUL-IP-address>"
+
+[api]
+route = "/api/channels/config"
