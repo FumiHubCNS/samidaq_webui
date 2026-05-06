@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>SAMIDARE Control Panel</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 24px;
+      background: #f6f7f9;
+      color: #222;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .wide-card {
+      grid-column: span 2;
+    }
+
+    @media (max-width: 640px) {
+      .wide-card {
+        grid-column: span 1;
+      }
+    }
+
+    label {
+      display: block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #444;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 6px;
+      padding: 8px;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: #1f6feb;
+      color: white;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: #57606a;
+    }
+
+    button.danger {
+      background: #cf222e;
+    }
+
+    pre {
+      background: #111827;
+      color: #d1d5db;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      min-height: 120px;
+    }
+
+    .status-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    .status-table th,
+    .status-table td {
+      text-align: left;
+      border-bottom: 1px solid #eee;
+      padding: 6px;
+      font-size: 14px;
+    }
+
+    .ok {
+      color: green;
+      font-weight: bold;
+    }
+
+    .bad {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>SAMIDARE Control Panel</h1>
+  <p>FastAPI の <code>/api/samidare/run</code> 経由で SAMDAQ を制御します。</p>
+
+  <div class="grid">
+    <div class="card wide-card">
+      <h2>Status</h2>
+      <button onclick="getStatus()">Get Status</button>
+      <table class="status-table">
+        <tbody id="statusTable">
+          <tr><td colspan="2">No status yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Connection</h2>
+      <button onclick="runFunction('connect_board')">Connect</button>
+      <button class="secondary" onclick="runFunction('disconnect_board')">Disconnect</button>
+    </div>
+
+    <div class="card">
+      <h2>Power</h2>
+      <button onclick="runFunction('power_on')">Power On</button>
+      <button class="danger" onclick="runFunction('power_off')">Power Off</button>
+    </div>
+
+    <div class="card">
+      <h2>Trigger</h2>
+
+      <label>Trigger Type</label>
+      <select id="triggerType">
+        <option value="self">self</option>
+        <option value="external">external</option>
+        <option value="1khz">1khz</option>
+        <option value="1mhz">1mhz</option>
+      </select>
+      <button onclick="setTriggerType()">Set Trigger Type</button>
+
+      <label>Trigger Threshold</label>
+      <input id="triggerThreshold" type="number" min="0" max="1023" value="0" />
+      <button onclick="setTriggerThreshold()">Set Trigger Threshold</button>
+    </div>
+
+    <div class="card">
+      <h2>Signal</h2>
+
+      <label>Polarity</label>
+      <select id="polarity">
+        <option value="positive">positive</option>
+        <option value="negative">negative</option>
+      </select>
+      <button onclick="setPolarity()">Set Polarity</button>
+
+      <label>Gain</label>
+      <select id="gain">
+        <option value="1">1 = 30mV / 160ns</option>
+        <option value="2">2 = 20mV / 160ns</option>
+        <option value="3">3 = 4mV / 300ns</option>
+      </select>
+      <button onclick="setGain()">Set Gain</button>
+    </div>
+
+    <div class="card">
+      <h2>Sampling</h2>
+
+      <label>Samples</label>
+      <select id="samples">
+        <option value="16">16</option>
+        <option value="32">32</option>
+        <option value="64" selected>64</option>
+        <option value="128">128</option>
+      </select>
+      <button onclick="setSamples()">Set Samples</button>
+
+      <label>Pre Samples</label>
+      <select id="preSamples">
+        <option value="0">0</option>
+        <option value="4">4</option>
+        <option value="8">8</option>
+        <option value="16">16</option>
+      </select>
+      <button onclick="setPreSamples()">Set Pre Samples</button>
+    </div>
+
+    <div class="card">
+      <h2>Clock</h2>
+
+      <label>External Clock</label>
+      <select id="externalClk">
+        <option value="true">on</option>
+        <option value="false">off</option>
+      </select>
+      <button onclick="setExternalClk()">Set External Clock</button>
+    </div>
+
+    <div class="card">
+      <h2>DAQ</h2>
+      <button onclick="runFunction('start_daq')">Start DAQ</button>
+      <button class="secondary" onclick="runFunction('stop_daq')">Stop DAQ</button>
+      <button class="danger" onclick="runFunction('quit_daq')">Quit DAQ</button>
+    </div>
+
+    <div class="card">
+      <h2>Output</h2>
+
+      <label>Output Directory</label>
+      <input id="outputDir" type="text" value="/home/daq/samidare/SAM_DAQ" />
+      <button onclick="setOutputDir()">Set Output Directory</button>
+
+      <label>Output Filename</label>
+      <input id="outputFile" type="text" value="output/output" />
+      <button onclick="setOutputFile()">Set Output Filename</button>
+    </div>
+
+    <div class="card wide-card">
+      <h2>Custom Command</h2>
+
+      <label>SAMDAQ Command</label>
+      <input
+        id="customCommand"
+        type="text"
+        value="status"
+        placeholder="e.g. status, ping, read 0x00"
+      />
+
+      <button onclick="sendCustomCommand()">Send Command</button>
+    </div>
+
+  </div>
+
+  <h2>Response</h2>
+  <pre id="response">No response yet</pre>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8000/api/samidare/run";
+
+    async function runFunction(functionName, params = {}) {
+      const payload = {
+        function: functionName,
+        params: params,
+      };
+
+      const responseBox = document.getElementById("response");
+      responseBox.textContent = "Running...";
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        responseBox.textContent = JSON.stringify(data, null, 2);
+
+        if (!res.ok) {
+          throw new Error(data.message || "Request failed");
+        }
+
+        return data;
+      } catch (err) {
+        responseBox.textContent = `ERROR: ${err.message}`;
+        throw err;
+      }
+    }
+
+    async function getStatus() {
+      const data = await runFunction("get_status");
+      const boardStatus = data?.command_result?.board_status;
+
+      if (boardStatus) {
+        renderStatus(boardStatus);
+      }
+    }
+
+    function renderStatus(status) {
+      const table = document.getElementById("statusTable");
+
+      const rows = [
+        ["IP Address", status.ip_address],
+        ["Connected", status.connected ? "Yes" : "No"],
+        ["Power", status.power],
+        ["Trigger Type", status.trigger_type],
+        ["Trigger Threshold", status.trigger_threshold],
+        ["Polarity", status.polarity],
+        ["Gain", status.gain],
+        ["Shaping", status.shaping],
+        ["Samples", status.samples],
+        ["Last Update", status.last_update],
+        ["Output Directory", status.output_directory],
+        ["Output Filename", status.output_filename],
+        ["Acquisition", status.acquisition],
+      ];
+
+      table.innerHTML = rows
+        .map(([key, value]) => {
+          const valueText = value ?? "";
+          return `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(String(valueText))}</td></tr>`;
+        })
+        .join("");
+    }
+
+    function setTriggerType() {
+      const triggerType = document.getElementById("triggerType").value;
+      return runFunction("set_trigger_type", {
+        trigger_type: triggerType,
+      });
+    }
+
+    function setTriggerThreshold() {
+      const threshold = Number(document.getElementById("triggerThreshold").value);
+      return runFunction("set_trigger_threshold", {
+        threshold: threshold,
+      });
+    }
+
+    function setPolarity() {
+      const polarity = document.getElementById("polarity").value;
+      return runFunction("set_polarity", {
+        polarity: polarity,
+      });
+    }
+
+    function setGain() {
+      const gain = Number(document.getElementById("gain").value);
+      return runFunction("set_gain", {
+        gain: gain,
+      });
+    }
+
+    function setSamples() {
+      const samples = Number(document.getElementById("samples").value);
+      return runFunction("set_samples", {
+        samples: samples,
+      });
+    }
+
+    function setPreSamples() {
+      const preSamples = Number(document.getElementById("preSamples").value);
+      return runFunction("set_pre_samples", {
+        pre_samples: preSamples,
+      });
+    }
+
+    function setExternalClk() {
+      const enabled = document.getElementById("externalClk").value === "true";
+      return runFunction("set_external_clk", {
+        enabled: enabled,
+      });
+    }
+
+    function setOutputDir() {
+      const outputDir = document.getElementById("outputDir").value;
+      return runFunction("set_output_dir", {
+        output_dir: outputDir,
+      });
+    }
+
+    function setOutputFile() {
+      const outputFile = document.getElementById("outputFile").value;
+      return runFunction("set_output_file", {
+        output_file: outputFile,
+      });
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  
+    function sendCustomCommand() {
+      const command = document.getElementById("customCommand").value.trim();
+
+      if (!command) {
+        const responseBox = document.getElementById("response");
+        responseBox.textContent = "ERROR: command is empty";
+        return;
+      }
+
+      return runFunction("send_command", {
+        request: {
+          command: command,
+        },
+      });
+    }
+  </script>
+</body>
+</html>

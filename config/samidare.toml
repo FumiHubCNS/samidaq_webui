@@ -4,13 +4,30 @@ backend = "src/samidare/Backend"
 
 [defaults]
 save_dir = "log/samidare_configs"
-config = "src/samidare/Backend/config/general/default.json"
+config = "src/samidaq_webui/samidare/Backend/config/general/default.json"
 
 [functions]
-send_command = "samidare.Backend.helpers.backEndHelpers:send_command"
+send_command = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:send_command"
+get_status = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:get_status"
+connect_board = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:connect_board"
+disconnect_board = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:disconnect_board"
+power_on = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:power_on"
+power_off = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:power_off"
+set_trigger_type = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_trigger_type"
+set_trigger_threshold = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_trigger_threshold"
+set_polarity = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_polarity"
+set_gain = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_gain"
+set_samples = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_samples"
+set_pre_samples = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_pre_samples"
+set_external_clk = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_external_clk"
+start_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:start_daq"
+stop_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:stop_daq"
+quit_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:quit_daq"
+set_output_dir = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_output_dir"
+set_output_file = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_output_file"
 
 [device]
-script = "src/samidare/Scripts/send_samdaq_tmux.sh"
+script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
 session = "samdaq:0.0"
 log_file = "log/samdaq_tmux.log"
 wait_timeout = 2
@@ -18,5 +35,4 @@ poll_sec = 0.05
 
 [api]
 prefix = "/api/samidare"
-status_route = "/status"
-command_route = "/command"
+run_route = "/run"

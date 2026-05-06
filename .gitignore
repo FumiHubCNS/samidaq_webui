@@ -27,4 +27,4 @@ venv/
 **/key.pem
 
 # Local
-paths.conf
+log

@@ -24,17 +24,20 @@ fi
 
 touch "$LOG_FILE"
 
-# pipe-pane が張られていなければ、このスクリプト実行場所のログへ出力
-PIPE_STATE="$(
-    tmux list-panes \
-        -t "$SESSION" \
-        -F '#{pane_pipe}' \
-        | head -n 1
-)"
+# 既存 pipe-pane が別ログを向いている可能性があるので、毎回張り直す
+tmux pipe-pane -t "$SESSION"
+tmux pipe-pane -t "$SESSION" "cat >> '$LOG_FILE'"
+# # pipe-pane が張られていなければ、このスクリプト実行場所のログへ出力
+# PIPE_STATE="$(
+#     tmux list-panes \
+#         -t "$SESSION" \
+#         -F '#{pane_pipe}' \
+#         | head -n 1
+# )"
 
-if [ "$PIPE_STATE" != "1" ]; then
-    tmux pipe-pane -t "$SESSION" "cat >> '$LOG_FILE'"
-fi
+# if [ "$PIPE_STATE" != "1" ]; then
+#     tmux pipe-pane -t "$SESSION" "cat >> '$LOG_FILE'"
+# fi
 
 START_SIZE="$(stat -c%s "$LOG_FILE")"
 

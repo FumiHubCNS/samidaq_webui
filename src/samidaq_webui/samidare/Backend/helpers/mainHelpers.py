@@ -1,6 +1,7 @@
 from pathlib import Path
 import importlib
 import tomllib
+from datetime import datetime
 
 def load_toml_config(path: str | Path) -> dict:
     """
@@ -117,3 +118,18 @@ def get_setting(settings: dict, key: str, *, required: bool = True):
         raise KeyError(f"Missing setting: set paths.{key} or defaults.{key} in TOML")
 
     return value
+
+def make_output_paths(prefix: str, save_dir_base: Path) -> tuple[Path, Path]:
+    """"
+    出力ファイルのパスを生成する。
+
+    Args:
+        prefix (str): ファイル名の接頭辞。
+
+    Returns:
+        tuple[Path, Path]: JSONファイルと出力ファイルのパス。
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    json_filename = save_dir_base / f"samidare_{prefix}_request_{timestamp}.json"
+    output_filename = save_dir_base / f"samidare_{prefix}_output_{timestamp}.txt"
+    return json_filename, output_filename
