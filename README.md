@@ -49,7 +49,6 @@ SAM_DAQ を Web API から制御するための FastAPI ベースの WebUI / bac
 ```bash
 git clone https://github.com/FumiHubCNS/samidaq_webui.git
 cd samidaq_webui
-git checkout package-feectr
 uv sync
 ```
 
