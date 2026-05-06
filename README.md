@@ -99,6 +99,12 @@ log_file = "log/samdaq_tmux.log"
 wait_timeout = 2
 poll_sec = 0.05
 
+[functions]
+get_status = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:get_status"
+set_gain = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_gain"
+start_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:start_daq"
+stop_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:stop_daq"
+
 [api]
 prefix = "/api/samidare"
 run_route = "/run"
@@ -125,6 +131,13 @@ script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
 ```
 
 このスクリプトは `tmux send-keys` で SAMDAQ CLI にコマンドを送り、`tmux pipe-pane` で出力ログを取得します。
+
+
+### SAMIDARE バックエンド関数の使い方
+
+SAMIDARE WebUI のバックエンドでは、`config/samidare.toml` の `[functions]` セクションで、API から呼び出せる関数を指定しています。
+
+つまり実行したい関数をバックエンドに書いたのちにこの`toml`に関数のパスと名前を渡せば使えるようになります。
 
 ### SAM_DAQの起動
 
