@@ -12,7 +12,8 @@ from .backEndHelpers import (
     validate_choice,
     validate_int_choice,
     validate_int_range,
-    run_samdaq_command
+    run_samdaq_command,
+    resolve_from_project_root
 )
 
 # =============================================================================

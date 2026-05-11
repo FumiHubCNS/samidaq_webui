@@ -3,10 +3,6 @@ let lastFileSizeBytes = null;
 let lastFileTimestamp = null;
 let lastMonitorPath = null;
 
-let isApplyingRemotePageInfo = false;
-let lastLocalEditAt = 0;
-let lastRemoteSavedAt = null;
-
 const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:8000/api/samidare`;
 const API_URL = `${API_BASE_URL}/run`;
 const STATUS_URL = `${API_BASE_URL}/status`;
@@ -14,10 +10,6 @@ const INITIAL_PARAM_URL = `${STATUS_URL}/initial-param`;
 const CURRENT_PAGEINFO_URL = `${STATUS_URL}/current-pageinfo`;
 const DATA_NAME_URL = `${STATUS_URL}/data-name`;
 const DATA_NAME_INCREMENT_URL = `${STATUS_URL}/data-name/increment`;
-
-function markLocalEdit() {
-  lastLocalEditAt = Date.now();
-}
 
 function updateCurrentTime() {
   const now = new Date();
@@ -107,6 +99,7 @@ async function getStatus() {
 }
 
 function renderStatus(status) {
+  
   const table = document.getElementById("statusTable");
 
   const rows = [
@@ -137,7 +130,6 @@ function renderStatus(status) {
 
 function setTriggerType(options = {}) {
   const triggerType = document.getElementById("triggerType").value;
-  markLocalEdit();
 
   return runFunction("set_trigger_type", {
     trigger_type: triggerType,
@@ -146,7 +138,6 @@ function setTriggerType(options = {}) {
 
 function setTriggerThreshold(options = {}) {
   const threshold = Number(document.getElementById("triggerThreshold").value);
-  markLocalEdit();
 
   return runFunction("set_trigger_threshold", {
     threshold: threshold,
@@ -155,7 +146,6 @@ function setTriggerThreshold(options = {}) {
 
 function setPolarity(options = {}) {
   const polarity = document.getElementById("polarity").value;
-  markLocalEdit();
 
   return runFunction("set_polarity", {
     polarity: polarity,
@@ -164,7 +154,6 @@ function setPolarity(options = {}) {
 
 function setGain(options = {}) {
   const gain = Number(document.getElementById("gain").value);
-  markLocalEdit();
 
   return runFunction("set_gain", {
     gain: gain,
@@ -173,7 +162,6 @@ function setGain(options = {}) {
 
 function setSamples(options = {}) {
   const samples = Number(document.getElementById("samples").value);
-  markLocalEdit();
 
   return runFunction("set_samples", {
     samples: samples,
@@ -182,7 +170,6 @@ function setSamples(options = {}) {
 
 function setPreSamples(options = {}) {
   const preSamples = Number(document.getElementById("preSamples").value);
-  markLocalEdit();
 
   return runFunction("set_pre_samples", {
     pre_samples: preSamples,
@@ -191,7 +178,6 @@ function setPreSamples(options = {}) {
 
 function setExternalClk(options = {}) {
   const enabled = document.getElementById("externalClk").value === "true";
-  markLocalEdit();
 
   return runFunction("set_external_clk", {
     enabled: enabled,
@@ -200,7 +186,6 @@ function setExternalClk(options = {}) {
 
 function setOutputDir(options = {}) {
   const outputDir = document.getElementById("outputDir").value.trim();
-  markLocalEdit();
 
   if (!outputDir) {
     document.getElementById("response").textContent = "ERROR: output directory is empty";
@@ -214,7 +199,6 @@ function setOutputDir(options = {}) {
 
 function setOutputFile(options = {}) {
   const outputFile = document.getElementById("outputFile").value.trim();
-  markLocalEdit();
 
   if (!outputFile) {
     document.getElementById("response").textContent = "ERROR: output file is empty";
@@ -237,7 +221,6 @@ function escapeHtml(value) {
 
 function sendCustomCommand() {
   const command = document.getElementById("customCommand").value.trim();
-  markLocalEdit();
 
   if (!command) {
     const responseBox = document.getElementById("response");
@@ -297,8 +280,6 @@ async function startDaq() {
   const headerComment = document.getElementById("headerComment").value.trim();
   const incrementMode = document.getElementById("dataNameIncrementMode").checked;
 
-  markLocalEdit();
-
   if (incrementMode) {
     const outputFile = buildIncrementOutputFile();
 
@@ -328,8 +309,6 @@ async function startDaq() {
 async function stopDaq() {
   const enderComment = document.getElementById("enderComment").value.trim();
   const incrementMode = document.getElementById("dataNameIncrementMode").checked;
-
-  markLocalEdit();
 
   await runFunction("stop_daq", {
     ender_comment: enderComment,
@@ -490,6 +469,10 @@ function applyInitialParams(params) {
   setElementValue("customCommand", params.custom_command);
   setElementValue("headerComment", params.header_comment);
   setElementValue("enderComment", params.ender_comment);
+
+  if (params.data_name_increment) {
+    applyDataNameState(params.data_name_increment);
+  }
 }
 
 function setElementValue(id, value) {
@@ -559,10 +542,6 @@ function collectCurrentPageInfo() {
 }
 
 async function postCurrentPageInfo() {
-  if (isApplyingRemotePageInfo) {
-    return;
-  }
-
   try {
     await fetch(CURRENT_PAGEINFO_URL, {
       method: "POST",
@@ -573,121 +552,6 @@ async function postCurrentPageInfo() {
     });
   } catch (err) {
     console.warn("Could not post current page info:", err);
-  }
-}
-
-async function loadCurrentPageInfo() {
-  try {
-    const res = await fetch(CURRENT_PAGEINFO_URL, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      throw new Error(`Failed to load current page info: ${res.status}`);
-    }
-
-    const data = await res.json();
-    const pageInfo = data.current_pageinfo;
-
-    if (!pageInfo) {
-      return;
-    }
-
-    const now = Date.now();
-
-    if (now - lastLocalEditAt < 1500) {
-      return;
-    }
-
-    if (data.saved_at && data.saved_at === lastRemoteSavedAt) {
-      return;
-    }
-
-    lastRemoteSavedAt = data.saved_at ?? null;
-
-    applyCurrentPageInfo(pageInfo);
-  } catch (err) {
-    console.warn("Could not load current page info:", err);
-  }
-}
-
-function applyCurrentPageInfo(pageInfo) {
-  if (!pageInfo) {
-    return;
-  }
-
-  isApplyingRemotePageInfo = true;
-
-  try {
-    const params = pageInfo.parameters ?? {};
-
-    setElementValue("triggerType", params.trigger_type);
-    setElementValue("triggerThreshold", params.trigger_threshold);
-    setElementValue("polarity", params.polarity);
-    setElementValue("gain", params.gain);
-    setElementValue("samples", params.samples);
-    setElementValue("preSamples", params.pre_samples);
-    setElementValue("externalClk", params.external_clk);
-    setElementValue("outputDir", params.output_dir);
-    setElementValue("outputFile", params.output_file);
-
-    const dataName = pageInfo.data_name_increment ?? {};
-
-    if (dataName.enabled !== undefined) {
-      document.getElementById("dataNameIncrementMode").checked = Boolean(dataName.enabled);
-    }
-
-    setElementValue("runName", dataName.run_name);
-    setElementValue("runNumber", dataName.run_number);
-
-    if (dataName.locked !== undefined) {
-      document.getElementById("lockRunNameNumber").checked = Boolean(dataName.locked);
-      updateRunNameNumberLock();
-    }
-
-    const daq = pageInfo.daq ?? {};
-    setElementValue("headerComment", daq.header_comment);
-    setElementValue("enderComment", daq.ender_comment);
-
-    const customCommand = pageInfo.custom_command ?? {};
-    setElementValue("customCommand", customCommand.command);
-
-    if (pageInfo.board_status) {
-      currentBoardStatus = pageInfo.board_status;
-      renderStatus(currentBoardStatus);
-    }
-
-    const fileMonitor = pageInfo.file_monitor ?? {};
-
-    if (fileMonitor.path !== undefined) {
-      document.getElementById("fileMonitorPath").textContent = fileMonitor.path;
-    }
-
-    if (fileMonitor.exists !== undefined) {
-      document.getElementById("fileMonitorExists").textContent = fileMonitor.exists;
-    }
-
-    if (fileMonitor.total_size !== undefined) {
-      document.getElementById("fileMonitorSize").textContent = fileMonitor.total_size;
-    }
-
-    if (fileMonitor.increase_per_sec !== undefined) {
-      document.getElementById("fileMonitorIncrease").textContent = fileMonitor.increase_per_sec;
-    }
-
-    if (fileMonitor.last_size_bytes !== undefined) {
-      lastFileSizeBytes = fileMonitor.last_size_bytes;
-    }
-
-    if (fileMonitor.last_timestamp !== undefined) {
-      lastFileTimestamp = fileMonitor.last_timestamp;
-    }
-
-    if (fileMonitor.last_monitor_path !== undefined) {
-      lastMonitorPath = fileMonitor.last_monitor_path;
-    }
-  } finally {
-    isApplyingRemotePageInfo = false;
   }
 }
 
@@ -719,20 +583,19 @@ function applyDataNameState(state) {
   document.getElementById("runName").value = state.run_name ?? "run";
   document.getElementById("runNumber").value = Number(state.run_number ?? 0);
 
+  if (state.locked !== undefined) {
+    document.getElementById("lockRunNameNumber").checked = Boolean(state.locked);
+  }
+
   updateRunNameNumberLock();
 }
 
 async function updateDataNameStateFromPage() {
-  if (isApplyingRemotePageInfo) {
-    return;
-  }
-
-  markLocalEdit();
-
   const payload = {
     enabled: document.getElementById("dataNameIncrementMode").checked,
     run_name: document.getElementById("runName").value.trim(),
     run_number: Number(document.getElementById("runNumber").value),
+    locked: document.getElementById("lockRunNameNumber").checked,
   };
 
   try {
@@ -809,7 +672,6 @@ async function restartSAMDaq() {
 async function initializePage() {
   await loadInitialParams();
   await loadDataNameState();
-  await loadCurrentPageInfo();
 
   getStatus();
   updateCurrentTime();
@@ -818,8 +680,9 @@ async function initializePage() {
 
   setInterval(updateCurrentTime, 1000);
   setInterval(updateOutputFileMonitor, 1000);
+
+
   setInterval(postCurrentPageInfo, 1000);
-  setInterval(loadCurrentPageInfo, 1000);
 }
 
 window.runFunction = runFunction;
@@ -840,6 +703,5 @@ window.startSAMDaq = startSAMDaq;
 window.restartSAMDaq = restartSAMDaq;
 window.updateDataNameStateFromPage = updateDataNameStateFromPage;
 window.updateRunNameNumberLock = updateRunNameNumberLock;
-window.markLocalEdit = markLocalEdit;
 
 initializePage();

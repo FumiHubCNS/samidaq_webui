@@ -98,3 +98,4 @@ FILTERED_OUTPUT="$(
 )"
 
 printf '%s\n' "$FILTERED_OUTPUT"
+

@@ -17,6 +17,7 @@ from .helpers.mainHelpers import (
     resolve_path,
     make_output_paths,
     get_initial_params,
+    should_save_log,
 )
 
 
@@ -51,7 +52,6 @@ settings["_data_name_state_path"] = str(
 sendCommand = get_required_function(settings, "send_command")
 
 current_pageinfo_cache = None
-
 
 def load_data_name_state() -> dict:
     path = Path(settings["_data_name_state_path"])
@@ -192,7 +192,13 @@ async def run_backend_function(request: dict):
             )
 
         func = get_required_function(settings, function_name)
-        json_filename, output_filename = make_output_paths(function_name, SAVE_DIR)
+
+        save_log = should_save_log(function_name, settings)
+        json_filename, output_filename = make_output_paths(
+            function_name,
+            SAVE_DIR,
+            save_log=save_log,
+        )
 
         result = func(
             **params,
@@ -210,10 +216,11 @@ async def run_backend_function(request: dict):
             "output_file": str(output_filename),
         }
 
-        json_filename.parent.mkdir(parents=True, exist_ok=True)
+        if save_log and json_filename is not None:
+            json_filename.parent.mkdir(parents=True, exist_ok=True)
 
-        with json_filename.open("w", encoding="utf-8") as f:
-            json.dump(response_content, f, indent=4, ensure_ascii=False)
+            with json_filename.open("w", encoding="utf-8") as f:
+                json.dump(response_content, f, indent=4, ensure_ascii=False)
 
         return JSONResponse(content=response_content)
 
@@ -221,22 +228,33 @@ async def run_backend_function(request: dict):
         function_name = request.get("function", "unknown")
         params = request.get("params", {})
 
+        save_log = should_save_log(function_name, settings)
+
         error_content = {
             "message": f"Error executing backend function: {e}",
             "function": function_name,
             "params": params,
+            "log_saved": False,
+            "json_file": None,
         }
 
-        try:
-            json_filename, _ = make_output_paths(f"{function_name}_error", SAVE_DIR)
+        if save_log:
+            try:
+                json_filename, _ = make_output_paths(
+                    f"{function_name}_error",
+                    SAVE_DIR,
+                    save_log=True,
+                )
 
-            with json_filename.open("w", encoding="utf-8") as f:
-                json.dump(error_content, f, indent=4, ensure_ascii=False)
+                if json_filename is not None:
+                    with json_filename.open("w", encoding="utf-8") as f:
+                        json.dump(error_content, f, indent=4, ensure_ascii=False)
 
-            error_content["json_file"] = str(json_filename)
+                    error_content["json_file"] = str(json_filename)
+                    error_content["log_saved"] = True
 
-        except Exception as save_error:
-            error_content["json_save_error"] = str(save_error)
+            except Exception as save_error:
+                error_content["json_save_error"] = str(save_error)
 
         return JSONResponse(
             content=error_content,

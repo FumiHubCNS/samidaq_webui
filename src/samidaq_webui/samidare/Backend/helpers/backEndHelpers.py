@@ -228,8 +228,8 @@ def send_command(
     )
 
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(completed.stdout, encoding="utf-8")
+    # output_path.parent.mkdir(parents=True, exist_ok=True)
+    # output_path.write_text(completed.stdout, encoding="utf-8")
 
     if completed.returncode != 0:
         raise RuntimeError(

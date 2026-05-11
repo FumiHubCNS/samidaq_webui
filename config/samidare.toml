@@ -42,3 +42,10 @@ prefix = "/api/samidare"
 run_route = "/run"
 status_route = "/status"
 server = "cactus"
+
+[log]
+enable = true
+mode = "exclude"
+functions = [
+  "get_file_info"
+]
