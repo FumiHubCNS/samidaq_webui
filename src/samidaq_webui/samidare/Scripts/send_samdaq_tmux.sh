@@ -88,8 +88,13 @@ ESCAPED_CMD="$(
 )"
 
 # 今回増えたログだけ出す
-tail -c "$BYTES" "$LOG_FILE" \
-    | tr -d '\r' \
-    | sed '/^[[:space:]]*$/d' \
-    | sed 's/^SAM_DAQ> //' \
-    | sed "/^${ESCAPED_CMD}$/d"
+FILTERED_OUTPUT="$(
+    tail -c "$BYTES" "$LOG_FILE" \
+        | tr -d '\r' \
+        | sed '/^[[:space:]]*$/d' \
+        | sed 's/^SAM_DAQ> //' \
+        | sed "/^${ESCAPED_CMD}$/d" \
+        || true
+)"
+
+printf '%s\n' "$FILTERED_OUTPUT"

@@ -1,18 +1,21 @@
-from pathlib import Path
-import subprocess
+from __future__ import annotations
+
+import json
 import os
+import subprocess
+import time
+from pathlib import Path
+from typing import Any
 
 
-def resolve_from_project_root(settings: dict, path_value: str) -> Path:
+# =============================================================================
+# Path helpers
+# =============================================================================
+
+def resolve_from_project_root(settings: dict, path_value: str | Path) -> Path:
     """
-    プロジェクトルートを基準にパスを解決する。
-
-    Args:
-        settings (dict): 設定辞書。"_project_root"キーを参照する。
-        path_value (str): 解決する相対または絶対パス。
-
-    Returns:
-        Path: 解決されたPathオブジェクト。
+    settings["_project_root"] を基準に相対パスを絶対パスへ変換する。
+    絶対パスが渡された場合はそのまま返す。
     """
     project_root = Path(settings.get("_project_root", "."))
     path = Path(path_value)
@@ -23,17 +26,66 @@ def resolve_from_project_root(settings: dict, path_value: str) -> Path:
     return project_root / path
 
 
+# =============================================================================
+# Validation helpers
+# =============================================================================
+
+def validate_choice(name: str, value: str, allowed: set[str]) -> str:
+    value = str(value).lower()
+
+    if value not in allowed:
+        allowed_text = ", ".join(sorted(allowed))
+        raise ValueError(f"Invalid {name}: {value}. Allowed: {allowed_text}")
+
+    return value
+
+
+def validate_int_choice(name: str, value: int, allowed: set[int]) -> int:
+    value = int(value)
+
+    if value not in allowed:
+        allowed_text = ", ".join(str(v) for v in sorted(allowed))
+        raise ValueError(f"Invalid {name}: {value}. Allowed: {allowed_text}")
+
+    return value
+
+
+def validate_int_range(name: str, value: int, min_value: int, max_value: int) -> int:
+    value = int(value)
+
+    if not min_value <= value <= max_value:
+        raise ValueError(f"Invalid {name}: {value}. Must be {min_value}-{max_value}")
+
+    return value
+
+# =============================================================================
+# Status parsing
+# =============================================================================
+
+def parse_bool_yes_no(value: str) -> bool:
+    return str(value).strip().lower() in {"yes", "true", "on", "1"}
+
+
+def parse_first_int(value: str) -> int | None:
+    try:
+        return int(str(value).strip().split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
 def parse_board_status(stdout: str) -> dict:
     """
-    samdaqのstatusコマンド出力をパースして辞書に変換する。
+    SAMDAQ の status 出力を JSON 化する。
 
-    Args:
-        stdout (str): samdaq statusコマンドの標準出力文字列。
-
-    Returns:
-        dict: board_status情報を表す辞書。
+    例:
+      IP Address: 192.168.1.192
+      Connected: Yes
+      Power: On
+      Trigger Type: Self-trigger
+      Trigger Threshold: 0
+      ...
     """
-    status = {}
+    status: dict[str, Any] = {}
 
     key_map = {
         "IP Address": "ip_address",
@@ -45,22 +97,22 @@ def parse_board_status(stdout: str) -> dict:
         "Gain": "gain",
         "Shaping": "shaping",
         "Samples": "samples",
+        "Pre Samples": "pre_samples",
+        "External Clock": "clock_type",
+        "Clock Type": "clock_type",
         "Last Update": "last_update",
         "Output Directory": "output_directory",
         "Output Filename": "output_filename",
         "Acquisition": "acquisition",
     }
 
-    for line in stdout.splitlines():
-        line = line.strip()
+    for raw_line in stdout.splitlines():
+        line = raw_line.strip()
 
         if not line:
             continue
 
-        if line.startswith("---"):
-            continue
-
-        if line.startswith("--- Board Status"):
+        if line.startswith("---") or line.startswith("----------------"):
             continue
 
         if ":" not in line:
@@ -73,42 +125,69 @@ def parse_board_status(stdout: str) -> dict:
         output_key = key_map.get(key, key.lower().replace(" ", "_"))
 
         if output_key == "connected":
-            status[output_key] = value.lower() == "yes"
+            status[output_key] = parse_bool_yes_no(value)
+
         elif output_key == "trigger_threshold":
-            status[output_key] = int(value)
+            try:
+                status[output_key] = int(value)
+            except ValueError:
+                status[output_key] = value
+
         elif output_key == "samples":
             status[output_key] = value
-            try:
-                status["samples_count"] = int(value.split()[0])
-            except (ValueError, IndexError):
-                pass
+            samples_count = parse_first_int(value)
+            if samples_count is not None:
+                status["samples_count"] = samples_count
+
+        elif output_key == "pre_samples":
+            status[output_key] = value
+            pre_samples_count = parse_first_int(value)
+            if pre_samples_count is not None:
+                status["pre_samples_count"] = pre_samples_count
+
         else:
             status[output_key] = value
 
     return status
 
 
+# =============================================================================
+# current-pageinfo helpers
+# =============================================================================
+
+def load_current_pageinfo_from_file(settings: dict) -> dict | None:
+    """
+    FastAPI 側が保存している current-pageinfo latest JSON を読む。
+    start / stop の戻り値に HTML の状態を付けたい場合に使う。
+    """
+    path_value = settings.get("_current_pageinfo_path")
+
+    if not path_value:
+        return None
+
+    path = Path(path_value)
+
+    if not path.exists():
+        return None
+
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+# =============================================================================
+# Low-level SAMDAQ command runner
+# =============================================================================
+
 def send_command(
     request: dict,
     config_path: str,
-    output_path: str,
+    output_path: str | Path,
     settings: dict,
 ):
     """
-    samdaq用のコマンドを実行し、結果を収集する。
+    SAMDAQ 用のコマンドを tmux 経由で実行し、結果を収集する。
 
-    Args:
-        request (dict): コマンド情報を含むリクエスト辞書。"command"キーを期待する。
-        config_path (str): 設定ファイルのパス（現在はコマンド生成に間接的に使用）。
-        output_path (str): samdaqコマンドの標準出力を書き込むパス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果を表す辞書。"status", "stdout", "stderr", "returncode"などを含む。
-
-    Raises:
-        ValueError: request.commandがない場合やデバイス設定が不正な場合。
-        FileNotFoundError: 実行スクリプトが存在しない場合。
+    request は {"command": "..."} を想定する。
     """
     command = request.get("command")
 
@@ -136,7 +215,7 @@ def send_command(
 
     completed = subprocess.run(
         [str(script_path), command],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
         env={
@@ -152,12 +231,19 @@ def send_command(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(completed.stdout, encoding="utf-8")
 
-    stdout = completed.stdout
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "SAMDAQ command failed: "
+            f"command={command!r}, "
+            f"returncode={completed.returncode}, "
+            f"stdout={completed.stdout!r}, "
+            f"stderr={completed.stderr!r}"
+        )
 
     result = {
         "status": "ok",
         "command": command,
-        "stdout": stdout,
+        "stdout": completed.stdout,
         "stderr": completed.stderr,
         "returncode": completed.returncode,
         "output_path": str(output_path),
@@ -165,513 +251,23 @@ def send_command(
     }
 
     if command == "status":
-        result["board_status"] = parse_board_status(stdout)
+        result["board_status"] = parse_board_status(completed.stdout)
+
+    if command in {"start", "stop"}:
+        result["current_pageinfo"] = load_current_pageinfo_from_file(settings)
 
     return result
 
 
-
-def _run_samdaq_command(
+def run_samdaq_command(
     command: str,
     config_path: str,
-    output_path: str,
+    output_path: str | Path,
     settings: dict,
 ):
-    """
-    samdaqコマンドを送信する内部ヘルパー。
-
-    Args:
-        command (str): samdaqに渡すコマンド文字列。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: send_commandの実行結果。
-    """
     return send_command(
         request={"command": command},
         config_path=config_path,
         output_path=output_path,
         settings=settings,
-    )
-
-
-def _validate_choice(name: str, value: str, allowed: set[str]) -> str:
-    """
-    文字列選択肢を検証する。
-
-    Args:
-        name (str): パラメータ名。
-        value (str): 検証する値。
-        allowed (set[str]): 許可される文字列の集合。
-
-    Returns:
-        str: 小文字化された検証済み値。
-
-    Raises:
-        ValueError: 許可されていない値の場合。
-    """
-    value = str(value).lower()
-
-    if value not in allowed:
-        allowed_text = ", ".join(sorted(allowed))
-        raise ValueError(f"Invalid {name}: {value}. Allowed: {allowed_text}")
-
-    return value
-
-
-def _validate_int_choice(name: str, value: int, allowed: set[int]) -> int:
-    """
-    整数選択肢を検証する。
-
-    Args:
-        name (str): パラメータ名。
-        value (int): 検証する値。
-        allowed (set[int]): 許可される整数の集合。
-
-    Returns:
-        int: 検証済みの整数値。
-
-    Raises:
-        ValueError: 許可されていない値の場合。
-    """
-    value = int(value)
-
-    if value not in allowed:
-        allowed_text = ", ".join(str(v) for v in sorted(allowed))
-        raise ValueError(f"Invalid {name}: {value}. Allowed: {allowed_text}")
-
-    return value
-
-
-def _validate_int_range(name: str, value: int, min_value: int, max_value: int) -> int:
-    """
-    整数値が指定範囲内にあるか検証する。
-
-    Args:
-        name (str): パラメータ名。
-        value (int): 検証する値。
-        min_value (int): 許容下限。
-        max_value (int): 許容上限。
-
-    Returns:
-        int: 検証済みの整数値。
-
-    Raises:
-        ValueError: 範囲外の場合。
-    """
-    value = int(value)
-
-    if not min_value <= value <= max_value:
-        raise ValueError(f"Invalid {name}: {value}. Must be {min_value}-{max_value}")
-
-    return value
-
-
-def get_status(config_path: str, output_path: str | None, settings: dict):
-    """
-    samdaqのステータスを取得する。
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str | None): 出力保存先パス。Noneの場合は一時ファイルを使用。
-        settings (dict): 全体設定辞書。
-    Returns:
-        dict: send_commandの実行結果。
-    """
-    return send_command(
-        request={"command": "status"},
-        config_path=config_path,
-        output_path=output_path,
-        settings=settings,
-    )
-
-
-def connect_board(config_path: str, output_path: str, settings: dict):
-    """
-    samdaqボードに接続する。
-
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    return _run_samdaq_command("connect", config_path, output_path, settings)
-
-
-def disconnect_board(config_path: str, output_path: str, settings: dict):
-    """
-    samdaqボードから切断する。
-
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    return _run_samdaq_command("disconnect", config_path, output_path, settings)
-
-
-def power_on(config_path: str, output_path: str, settings: dict):
-    """
-    samdaqの電源をオンにする。
-
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    return _run_samdaq_command("power on", config_path, output_path, settings)
-
-
-def power_off(config_path: str, output_path: str, settings: dict):
-    """
-    samdaqの電源をオフにする。
-
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    return _run_samdaq_command("power off", config_path, output_path, settings)
-
-
-def set_trigger_type(
-    trigger_type: str,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    トリガーの種類を設定する。
-
-    Args:
-        trigger_type (str): "self", "external", "1khz", "1mhz" のいずれか。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    trigger_type = _validate_choice(
-        "trigger_type",
-        trigger_type,
-        {"self", "external", "1khz", "1mhz"},
-    )
-
-    return _run_samdaq_command(
-        f"trigger {trigger_type}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def set_trigger_threshold(
-    threshold: int,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    トリガー閾値を設定する。
-
-    Args:
-        threshold (int): 0から1023までの閾値。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    threshold = _validate_int_range(
-        "trigger_threshold",
-        threshold,
-        0,
-        1023,
-    )
-
-    return _run_samdaq_command(
-        f"trigger-threshold {threshold}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def set_polarity(
-    polarity: str,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    入力信号の極性を設定する。
-
-    Args:
-        polarity (str): "positive" または "negative"。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    polarity = _validate_choice(
-        "polarity",
-        polarity,
-        {"positive", "negative"},
-    )
-
-    return _run_samdaq_command(
-        f"polarity {polarity}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def set_gain(
-    gain: int,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    増幅ゲインを設定する。
-
-    Args:
-        gain (int): 1, 2, 3 のいずれか。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    gain = _validate_int_choice(
-        "gain",
-        gain,
-        {1, 2, 3},
-    )
-
-    return _run_samdaq_command(
-        f"gain {gain}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def set_samples(
-    samples: int,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    取得サンプル数を設定する。
-
-    Args:
-        samples (int): 16, 32, 64, 128 のいずれか。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    samples = _validate_int_choice(
-        "samples",
-        samples,
-        {16, 32, 64, 128},
-    )
-
-    return _run_samdaq_command(
-        f"samples {samples}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def set_pre_samples(
-    pre_samples: int,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    プリサンプル（トリガー前サンプル数）を設定する。
-
-    Args:
-        pre_samples (int): 0, 4, 8, 16 のいずれか。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    pre_samples = _validate_int_choice(
-        "pre_samples",
-        pre_samples,
-        {0, 4, 8, 16},
-    )
-
-    return _run_samdaq_command(
-        f"pretrigger {pre_samples}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def set_external_clk(
-    enabled: bool,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    外部クロックの使用を設定する。
-
-    Args:
-        enabled (bool): Trueで外部クロックを有効にし、Falseで無効にする。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    value = "on" if enabled else "off"
-
-    return _run_samdaq_command(
-        f"external-clk {value}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def start_daq(config_path: str, output_path: str, settings: dict):
-    """
-    DAQを開始する。
-
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    return _run_samdaq_command("start", config_path, output_path, settings)
-
-
-def stop_daq(config_path: str, output_path: str, settings: dict):
-    """
-    DAQを停止する。
-
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    return _run_samdaq_command("stop", config_path, output_path, settings)
-
-
-def quit_daq(config_path: str, output_path: str, settings: dict):
-    """
-    samdaqを終了する。
-
-    Args:
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-    """
-    return _run_samdaq_command("quit", config_path, output_path, settings)
-
-
-def set_output_dir(
-    output_dir: str,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    出力保存先ディレクトリを設定する。
-
-    Args:
-        output_dir (str): 出力ディレクトリ。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-
-    Raises:
-        ValueError: output_dirが空の場合。
-    """
-    if not output_dir:
-        raise ValueError("output_dir is required")
-
-    return _run_samdaq_command(
-        f"output-dir {output_dir}",
-        config_path,
-        output_path,
-        settings,
-    )
-
-
-def set_output_file(
-    output_file: str,
-    config_path: str,
-    output_path: str,
-    settings: dict,
-):
-    """
-    出力ファイル名を設定する。
-
-    Args:
-        output_file (str): 出力ファイル名。
-        config_path (str): 設定ファイルのパス。
-        output_path (str): 標準出力保存先パス。
-        settings (dict): 全体設定辞書。
-
-    Returns:
-        dict: 実行結果。
-
-    Raises:
-        ValueError: output_fileが空の場合。
-    """
-    if not output_file:
-        raise ValueError("output_file is required")
-
-    return _run_samdaq_command(
-        f"output-file {output_file}",
-        config_path,
-        output_path,
-        settings,
     )

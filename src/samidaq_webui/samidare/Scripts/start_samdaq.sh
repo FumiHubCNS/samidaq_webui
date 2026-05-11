@@ -5,7 +5,7 @@ SESSION="${SAMDAQ_SESSION:-samdaq}"
 SAMDAQ_DIR="${1:-/home/daq/samidare/SAM_DAQ}"
 
 # cactus severの環境設定を消す
-CLEAN_ENV="${SAMDAQ_CLEAN_ENV:-$SAMDAQ_DIR/../clean-env.sh}"
+CLEAN_ENV="${SAMDAQ_CLEAN_ENV:-$SAMDAQ_DIR/clean-env.sh}"
 
 if [ ! -d "$SAMDAQ_DIR" ]; then
   echo "[ERROR] SAMDAQ_DIR does not exist: $SAMDAQ_DIR" >&2

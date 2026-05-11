@@ -1,0 +1,214 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 24px;
+  background: #f6f7f9;
+  color: #222;
+}
+
+h1 {
+  margin-bottom: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.wide-card {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .wide-card {
+    grid-column: span 1;
+  }
+}
+
+label {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+  color: #444;
+}
+
+input,
+select,
+button {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  background: #1f6feb;
+  color: white;
+  font-weight: 600;
+}
+
+button.secondary {
+  background: #57606a;
+}
+
+button.danger {
+  background: #cf222e;
+}
+
+button.note {
+  background: #3c9572;
+}
+
+pre {
+  background: #111827;
+  color: #d1d5db;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  min-height: 120px;
+}
+
+.status-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.status-table th,
+.status-table td {
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  padding: 6px;
+  font-size: 14px;
+}
+
+.ok {
+  color: green;
+  font-weight: bold;
+}
+
+.bad {
+  color: red;
+  font-weight: bold;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.form-row label {
+  width: auto;
+  min-width: 150px;
+  margin-top: 0;
+}
+
+.form-row select,
+.form-row input {
+  flex: 1;
+  width: auto;
+}
+
+.form-row button {
+  width: auto;
+  min-width: 100px;
+}
+
+.form-row input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin-top: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .form-row label {
+    width: 100%;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-row button {
+    width: 100%;
+  }
+}
+
+.form-row-all {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.form-row-all label {
+  width: auto;
+  min-width: 150px;
+  margin-top: 0;
+}
+
+.data-name-table {
+  display: grid;
+  grid-template-columns: 80px 80px 1fr 110px;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.data-name-table label {
+  margin-top: 0;
+  font-size: 14px;
+  color: #444;
+  font-weight: 600;
+  text-align: center;
+}
+
+.data-name-table input[type="text"],
+.data-name-table input[type="number"] {
+  width: 100%;
+  margin-top: 0;
+}
+
+.data-name-table input[type="checkbox"] {
+  width: 28px;
+  height: 28px;
+  margin-top: 0;
+  cursor: pointer;
+  justify-self: center;
+}
+
+.data-name-table input[readonly] {
+  background: #f0f0f0;
+  color: #666;
+}
+
+@media (max-width: 640px) {
+  .data-name-table {
+    grid-template-columns: 1fr;
+  }
+
+  .data-name-table label {
+    text-align: left;
+  }
+
+  .data-name-table input[type="checkbox"] {
+    justify-self: start;
+  }
+}

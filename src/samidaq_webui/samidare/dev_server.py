@@ -66,7 +66,7 @@ def main(start_samdaq: bool, samdaq_dir: str | None) -> None:
         "src.samidaq_webui.samidare.Backend.main:app",
         "--reload",
         "--host",
-        "127.0.0.1",
+        "0.0.0.0",
         "--port",
         "8000",
     ]
@@ -81,14 +81,14 @@ def main(start_samdaq: bool, samdaq_dir: str | None) -> None:
     processes: list[subprocess.Popen] = []
 
     try:
-        print("[INFO] Starting FastAPI backend: http://127.0.0.1:8000")
+        print("[INFO] Starting FastAPI backend: http://0.0.0.0:8000")
         backend = subprocess.Popen(
             backend_cmd,
             cwd=project_root,
         )
         processes.append(backend)
 
-        print("[INFO] Starting frontend: http://127.0.0.1:8080")
+        print("[INFO] Starting frontend: http://0.0.0.0:8080")
         frontend = subprocess.Popen(
             frontend_cmd,
             cwd=frontend_dir,

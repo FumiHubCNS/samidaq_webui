@@ -7,6 +7,7 @@ dist/
 wheels/
 *.egg-info
 *.so
+*.bk
 
 
 # Virtual environments
