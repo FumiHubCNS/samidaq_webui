@@ -32,15 +32,27 @@ SAM_DAQ を Web API から制御するための FastAPI ベースの WebUI / bac
 │   └── samidaq_webui
 │       ├── agasa
 │       ├── legacy
-│       ├── samidare
-│       │   ├── Backend
-│       │   │   ├── config
-│       │   │   ├── helpers
-│       │   │   └── main.py
-│       │   ├── Frontend
-│       │   └── Scripts
-│       │       └── send_samdaq_tmux.sh
-│       └── test
+│       └──  samidare
+│           ├── Backend
+│           │   ├── config
+│           │   │   └── general
+│           │   │       ├── cactus-test.json
+│           │   │       └── default.json
+│           │   ├── helpers
+│           │   │   ├── backEndHelpers.py
+│           │   │   ├── frontEndHelpers.py
+│           │   │   └──  mainHelpers.py
+│           │   └──  main.py
+│           ├── dev_server.py
+│           ├── Frontend
+│           │   ├── assets
+│           │   │   ├── index.css
+│           │   │   └── index.js
+│           │   ├── favicon.ico
+│           │   └── index.html
+│           └── Scripts
+│               ├── send_samdaq_tmux.sh
+│               └── start_samdaq.sh
 └── uv.lock
 ````
 
@@ -69,9 +81,10 @@ uv sync
 uv run webui-dev
 ```
 
-あとは`http://127.0.0.1:8080`でUIを確認できます。
+あとは`http://127.0.0.1:8080`などでUIを確認できます。
+また、後述する`toml`にサーバー名を書いておけば、その`http://[server name]:8080`でもアクセス可能です。
 
-また、`SAM_DAQ`も同時に起動したい場合は以下のコマンドで起動できます。
+`SAM_DAQ`も同時に起動したい場合は以下のコマンドで起動できます。
 
 ```zsh
 uv run webui-dev -s
@@ -79,11 +92,7 @@ uv run webui-dev -s
 
 ## 詳細設定
 
-SAMIDARE 用の設定は以下です。
-
-```text
-config/samidare.toml
-```
+SAMIDARE 用の設定は`config/samidare.toml`に書き込みます。
 
 主な設定項目:
 
@@ -108,11 +117,24 @@ stop_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:stop_daq"
 [api]
 prefix = "/api/samidare"
 run_route = "/run"
+status_route = "/status"
+server = "cactus"
+
+[log]
+enable = true
+mode = "exclude"
+functions = [
+  "get_file_info"
+]
 ```
 
-### device.session
+### SAMSAQコマンド送信について　(device)
 
-SAMDAQ が起動している tmux pane を指定します。
+SAMIDAREのDAQは別途バイナリを`tmux`上に起動させています。
+
+その`tmux`の設定を`device`に書きます。
+
+`device.session`にSAMDAQ が起動している tmux pane を指定します。
 
 例:
 
@@ -122,9 +144,7 @@ session = "samdaq:0.0"
 
 これは tmux session `samdaq` の window 0 / pane 0 を意味します。
 
-### device.script
-
-SAMDAQ CLI にコマンドを送るスクリプトです。
+`device.script`はSAMDAQ CLI にコマンドを送るスクリプトです。
 
 ```toml
 script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
@@ -132,15 +152,44 @@ script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
 
 このスクリプトは `tmux send-keys` で SAMDAQ CLI にコマンドを送り、`tmux pipe-pane` で出力ログを取得します。
 
-
-### SAMIDARE バックエンド関数の使い方
+### SAMIDARE バックエンド関数の使い方　(functions)
 
 SAMIDARE WebUI のバックエンドでは、`config/samidare.toml` の `[functions]` セクションで、API から呼び出せる関数を指定しています。
 
 つまり実行したい関数をバックエンドに書いたのちにこの`toml`に関数のパスと名前を渡せば使えるようになります。
 
-### SAM_DAQの起動
+### API関係の設定について
 
-`src/samidaq_webui/samidare/Scripts/start_samdaq.sh`にSAM_DAQのパスとtmuxでの起動方法が書かれています。
+APIの設定については`api`に書きます。
 
-正しくSAM_DAQをインストールできていれば実行可能なはずです。
+API全体のパスは`api.prefix`に書き、実行コマンドのパスは`api.run_route`、ボードパラメータなどの設定を`json`で投げつける先を`api.status_route`としています。
+
+`api.server`はSAMIDARE制御用サーバーの名前またはIPを設定できます。
+設定しておくと`http://[server name]:8080`でアクセス可能になります。
+
+###　記録機能について
+
+このWub UIではバックエンドの関数が実行させるたびに戻り値をタイムスタンプつきで`json`として保存します。
+
+`log`ではこのログ機能をOnにするか、何を記録するのかを選ぶことができます。
+
+記録すべき関数の設定は`log.mode`と`log.functions`で設定します。
+
+```toml
+[log]
+enable = true
+mode = "exclude"
+functions = [
+  "get_file_info"
+]
+```
+
+上記の場合は、`log.functions`に記録しない関数を指定します。
+
+頻繁に実行される関数などはのぞいておくと無駄なログファイルを大量に生成せずにすみます。
+
+### SAM_DAQの起動について
+
+Web UI上で起動はできるようになっていますが実態は`src/samidaq_webui/samidare/Scripts/start_samdaq.sh`を実行しています。
+
+このスクリプトにSAM_DAQのパスとtmuxでの起動方法が書かれていますので、正しくSAM_DAQをインストールできていれば実行可能なはずです。
