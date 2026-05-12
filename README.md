@@ -97,9 +97,37 @@ SAMIDARE 用の設定は`config/samidare.toml`に書き込みます。
 主な設定項目:
 
 ```toml
+[paths]
+backend = "src/samidare/Backend"
+config = "src/samidaq_webui/samidare/Backend/config/general/cactus-test.json"
+# save_dir = "set your save dir here, e.g. log/samidare_configs"
+
+
 [defaults]
 save_dir = "log/samidare_configs"
 config = "src/samidaq_webui/samidare/Backend/config/general/default.json"
+
+[functions]
+send_command = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:send_command"
+get_status = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:get_status"
+connect_board = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:connect_board"
+disconnect_board = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:disconnect_board"
+power_on = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:power_on"
+power_off = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:power_off"
+set_trigger_type = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_trigger_type"
+set_trigger_threshold = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_trigger_threshold"
+set_polarity = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_polarity"
+set_gain = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_gain"
+set_samples = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_samples"
+set_pre_samples = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_pre_samples"
+set_external_clk = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_external_clk"
+start_daq = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:start_daq"
+stop_daq = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:stop_daq"
+quit_daq = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:quit_daq"
+set_output_dir = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_output_dir"
+set_output_file = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:set_output_file"
+get_file_info = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:get_file_info"
+start_samdaq = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:start_samdaq"
 
 [device]
 script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
@@ -107,12 +135,6 @@ session = "samdaq:0.0"
 log_file = "log/samdaq_tmux.log"
 wait_timeout = 2
 poll_sec = 0.05
-
-[functions]
-get_status = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:get_status"
-set_gain = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:set_gain"
-start_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:start_daq"
-stop_daq = "samidaq_webui.samidare.Backend.helpers.backEndHelpers:stop_daq"
 
 [api]
 prefix = "/api/samidare"
