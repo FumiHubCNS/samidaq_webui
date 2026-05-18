@@ -2,7 +2,7 @@
   "trigger_type": "self",
   "trigger_threshold": 400,
   "polarity": "positive",
-  "gain": 3,
+  "gain": 2,
   "samples": 64,
   "pre_samples": 16,
   "external_clk": false,

@@ -131,7 +131,9 @@ start_samdaq = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:start_sam
 
 [device]
 script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
-session = "samdaq:0.0"
+start_script = "src/samidaq_webui/samidare/Scripts/start_samdaq.sh"
+samdaq_dir = "/home/daq/samidare/SAM_DAQ"
+start_session = "samdaq"
 log_file = "log/samdaq_tmux.log"
 wait_timeout = 2
 poll_sec = 0.05
@@ -156,15 +158,13 @@ SAMIDAREのDAQは別途バイナリを`tmux`上に起動させています。
 
 その`tmux`の設定を`device`に書きます。
 
-`device.session`にSAMDAQ が起動している tmux pane を指定します。
+`device.start_session`にSAMDAQ が起動している tmux pane を指定します。
 
 例:
 
 ```toml
-session = "samdaq:0.0"
+start_session = "samdaq"
 ```
-
-これは tmux session `samdaq` の window 0 / pane 0 を意味します。
 
 `device.script`はSAMDAQ CLI にコマンドを送るスクリプトです。
 
@@ -173,6 +173,8 @@ script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
 ```
 
 このスクリプトは `tmux send-keys` で SAMDAQ CLI にコマンドを送り、`tmux pipe-pane` で出力ログを取得します。
+
+また`device.start_script`, `device.samdaq_dir`にSAMDAQのパスと起動用スクリプトのパスを指定します。
 
 ### SAMIDARE バックエンド関数の使い方　(functions)
 
@@ -209,9 +211,3 @@ functions = [
 上記の場合は、`log.functions`に記録しない関数を指定します。
 
 頻繁に実行される関数などはのぞいておくと無駄なログファイルを大量に生成せずにすみます。
-
-### SAM_DAQの起動について
-
-Web UI上で起動はできるようになっていますが実態は`src/samidaq_webui/samidare/Scripts/start_samdaq.sh`を実行しています。
-
-このスクリプトにSAM_DAQのパスとtmuxでの起動方法が書かれていますので、正しくSAM_DAQをインストールできていれば実行可能なはずです。

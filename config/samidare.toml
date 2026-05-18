@@ -32,7 +32,9 @@ start_samdaq = "samidaq_webui.samidare.Backend.helpers.frontEndHelpers:start_sam
 
 [device]
 script = "src/samidaq_webui/samidare/Scripts/send_samdaq_tmux.sh"
-session = "samdaq:0.0"
+start_script = "src/samidaq_webui/samidare/Scripts/start_samdaq.sh"
+samdaq_dir = "/home/daq/samidare/SAM_DAQ"
+start_session = "samdaq"
 log_file = "log/samdaq_tmux.log"
 wait_timeout = 2
 poll_sec = 0.05
